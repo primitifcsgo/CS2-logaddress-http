@@ -113,8 +113,14 @@ export class MatchState {
   }
 
   ingestLine(rawLine) {
-    const stripped = rawLine.replace(/^L\s+/, '').trim();
+    let stripped = rawLine.replace(/^L\s+/, '').trim();
     if (!stripped) return null;
+    // CS2 newer format: "MM/DD/YYYY - HH:MM:SS.fff - body"
+    // Parser expects:   "MM/DD/YYYY - HH:MM:SS: body"
+    stripped = stripped.replace(
+      /^(\d{2}\/\d{2}\/\d{4}) - (\d{2}:\d{2}:\d{2})(?:\.\d+)? - /,
+      '$1 - $2: ',
+    );
 
     let event;
     try {
