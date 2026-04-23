@@ -23,10 +23,32 @@ const SECONDARIES = new Set([
   'glock', 'usp_silencer', 'hkp2000', 'p250', 'deagle', 'revolver',
   'fiveseven', 'cz75a', 'tec9', 'elite', 'p2000',
 ]);
+const SNIPERS = new Set(['awp', 'ssg08', 'scar20', 'g3sg1']);
+const PISTOLS = SECONDARIES;
 const GRENADES = new Set([
   'hegrenade', 'flashbang', 'smokegrenade', 'molotov', 'incgrenade',
   'decoy', 'inferno', 'frag_grenade',
 ]);
+
+const MULTI_KILL_LABELS = {
+  1: null,
+  2: 'double',
+  3: 'triple',
+  4: 'quad',
+  5: 'ace',
+};
+
+// Steam3 account id → SteamID64
+const STEAM64_BASE = 76561197960265728n;
+
+function accountIdToSteamId(accountId) {
+  if (!accountId || accountId === '0') return null;
+  try {
+    return (BigInt(accountId) + STEAM64_BASE).toString();
+  } catch {
+    return null;
+  }
+}
 
 function stripWeaponPrefix(s) {
   return String(s).replace(/^weapon_/, '');
@@ -34,8 +56,15 @@ function stripWeaponPrefix(s) {
 
 function sideFromTeam(team) {
   if (!team) return 'UNKNOWN';
+  if (typeof team === 'string') {
+    if (team === 'COUNTER_TERRORISTS' || team === 'CT') return 'CT';
+    if (team === 'TERRORISTS' || team === 'TERRORIST') return 'T';
+    return team;
+  }
   if (team.name === 'COUNTER_TERRORISTS') return 'CT';
   if (team.name === 'TERRORISTS') return 'T';
+  if (team.id === 3) return 'CT';
+  if (team.id === 2) return 'T';
   return team.name ?? 'UNKNOWN';
 }
 
@@ -45,11 +74,25 @@ function emptyTeam(side) {
     name: side === 'CT' ? 'Counter-Terrorists' : 'Terrorists',
     score: 0,
     timeoutsRemaining: 4,
+    totalMoney: 0,
+    avgAdr: 0,
+    totalDamage: 0,
   };
 }
 
 function emptyRound(number = 0) {
-  return { number, phase: 'Idle', bomb: { status: 'carried' }, kills: [] };
+  return {
+    number,
+    phase: 'Idle',
+    bomb: { status: 'carried' },
+    kills: [],
+    killsBySteamId: {},
+    firstKillSteamId: null,
+    firstDeathSteamId: null,
+    startedAt: null,
+    endedAt: null,
+    durationMs: null,
+  };
 }
 
 function newPlayer(entity, side) {
@@ -59,11 +102,36 @@ function newPlayer(entity, side) {
     entityId: entity.entityId ?? null,
     isBot: entity.kind === 'bot',
     team: side,
+    // Primary stats
     kills: 0,
     deaths: 0,
     assists: 0,
     headshots: 0,
     mvPs: 0,
+    // Extended stats from JSON_BEGIN round_stats
+    damageDealt: 0,
+    adr: 0,
+    hsPercent: 0,
+    kdr: 0,
+    enemiesFlashed: 0,
+    utilityDamage: 0,
+    tripleKills: 0,
+    quadKills: 0,
+    aces: 0,
+    clutchesWon: 0,
+    firstKills: 0,
+    pistolKills: 0,
+    sniperKills: 0,
+    blindKills: 0,
+    bombKills: 0,
+    fireDamage: 0,
+    uniqueKills: 0,
+    dinks: 0,
+    // Live derived (updated between JSON_BEGIN blocks)
+    liveDamageDealt: 0,
+    liveDamageThisRound: 0,
+    weaponKills: {},
+    // Equipment / round state
     health: 100,
     armor: 0,
     hasHelmet: false,
@@ -92,12 +160,24 @@ export class MatchState {
     this.players = new Map();
     this.currentRound = emptyRound();
     this.roundHistory = [];
+    this.chatLog = [];
+    this.damageMatrix = {}; // { "attackerSteamId->victimSteamId": { damage, hits } }
     this.startedAt = null;
     this.lastEventAt = null;
     this.eventsProcessed = 0;
   }
 
   snapshot() {
+    const players = [...this.players.values()];
+    const ctPlayers = players.filter((p) => p.team === 'CT');
+    const tPlayers = players.filter((p) => p.team === 'T');
+    this.ct.totalMoney = ctPlayers.reduce((s, p) => s + (p.money || 0), 0);
+    this.t.totalMoney = tPlayers.reduce((s, p) => s + (p.money || 0), 0);
+    this.ct.totalDamage = ctPlayers.reduce((s, p) => s + (p.damageDealt || p.liveDamageDealt || 0), 0);
+    this.t.totalDamage = tPlayers.reduce((s, p) => s + (p.damageDealt || p.liveDamageDealt || 0), 0);
+    this.ct.avgAdr = ctPlayers.length ? Math.round(ctPlayers.reduce((s, p) => s + (p.adr || 0), 0) / ctPlayers.length) : 0;
+    this.t.avgAdr = tPlayers.length ? Math.round(tPlayers.reduce((s, p) => s + (p.adr || 0), 0) / tPlayers.length) : 0;
+
     return {
       mapName: this.mapName,
       phase: this.phase,
@@ -105,24 +185,77 @@ export class MatchState {
       maxRounds: this.maxRounds,
       ct: this.ct,
       t: this.t,
-      players: [...this.players.values()],
+      players,
       currentRound: this.currentRound,
       roundHistory: this.roundHistory,
+      chatLog: this.chatLog.slice(-60),
+      damageMatrix: this.damageMatrix,
+      leaders: this.#computeLeaders(players),
       timestamp: Date.now(),
     };
+  }
+
+  #computeLeaders(players) {
+    const byKills = [...players].sort((a, b) => b.kills - a.kills).slice(0, 3);
+    const byAdr = [...players].sort((a, b) => (b.adr || 0) - (a.adr || 0)).slice(0, 3);
+    const byHs = [...players].filter((p) => p.kills >= 3).sort((a, b) => (b.hsPercent || 0) - (a.hsPercent || 0)).slice(0, 3);
+    const byDmg = [...players].sort((a, b) => (b.damageDealt || b.liveDamageDealt || 0) - (a.damageDealt || a.liveDamageDealt || 0)).slice(0, 3);
+    const byClutches = [...players].filter((p) => (p.clutchesWon || 0) > 0).sort((a, b) => b.clutchesWon - a.clutchesWon).slice(0, 3);
+    const byFirstKills = [...players].filter((p) => (p.firstKills || 0) > 0).sort((a, b) => b.firstKills - a.firstKills).slice(0, 3);
+    const byUtil = [...players].filter((p) => (p.utilityDamage || 0) > 0).sort((a, b) => b.utilityDamage - a.utilityDamage).slice(0, 3);
+    const byMvps = [...players].filter((p) => (p.mvPs || 0) > 0).sort((a, b) => b.mvPs - a.mvPs).slice(0, 3);
+    const shape = (arr, field) => arr.map((p) => ({ name: p.name, team: p.team, value: p[field] ?? 0 }));
+    return {
+      kills: shape(byKills, 'kills'),
+      adr: shape(byAdr, 'adr'),
+      hs: byHs.map((p) => ({ name: p.name, team: p.team, value: p.hsPercent })),
+      damage: byDmg.map((p) => ({ name: p.name, team: p.team, value: p.damageDealt || p.liveDamageDealt || 0 })),
+      clutches: shape(byClutches, 'clutchesWon'),
+      firstKills: shape(byFirstKills, 'firstKills'),
+      utility: shape(byUtil, 'utilityDamage'),
+      mvps: shape(byMvps, 'mvPs'),
+    };
+  }
+
+  ingestBatch(body) {
+    const rawLines = body.split(/\r?\n/);
+    const events = [];
+    let jsonBlock = null;
+
+    for (const rawLine of rawLines) {
+      const content = rawLine
+        .replace(/^L\s+/, '')
+        .replace(/^(\d{2}\/\d{2}\/\d{4}) - (\d{2}:\d{2}:\d{2})(?:\.\d+)? - /, '')
+        .trim();
+
+      if (jsonBlock) {
+        jsonBlock.push(content);
+        if (content.includes('JSON_END')) {
+          this.#applyRoundStatsBlock(jsonBlock);
+          jsonBlock = null;
+        }
+        continue;
+      }
+      if (content.startsWith('JSON_BEGIN')) {
+        jsonBlock = [content];
+        continue;
+      }
+
+      const ev = this.ingestLine(rawLine);
+      if (ev) events.push(ev);
+    }
+
+    return events;
   }
 
   ingestLine(rawLine) {
     let stripped = rawLine.replace(/^L\s+/, '').trim();
     if (!stripped) return null;
-    // CS2 newer format: "MM/DD/YYYY - HH:MM:SS.fff - body"
-    // Parser expects:   "MM/DD/YYYY - HH:MM:SS: body"
     stripped = stripped.replace(
       /^(\d{2}\/\d{2}\/\d{4}) - (\d{2}:\d{2}:\d{2})(?:\.\d+)? - /,
       '$1 - $2: ',
     );
-    // CS2 appends " at bombsite A" to Planted_The_Bomb / Bomb_Begin_Plant;
-    // parser doesn't tolerate the suffix. Capture site, then strip.
+
     let bombsite = null;
     const siteMatch = stripped.match(/ at bombsite ([A-Za-z0-9]+)\s*$/);
     if (siteMatch) {
@@ -143,16 +276,6 @@ export class MatchState {
     this.eventsProcessed++;
     this.#apply(event);
     return event;
-  }
-
-  ingestBatch(body) {
-    const lines = body.split(/\r?\n/);
-    const events = [];
-    for (const line of lines) {
-      const ev = this.ingestLine(line);
-      if (ev) events.push(ev);
-    }
-    return events;
   }
 
   #player(entity) {
@@ -182,6 +305,7 @@ export class MatchState {
       case 'purchased': return this.#onPurchased(event);
       case 'left_buyzone_with': return this.#onLeftBuyzone(event);
       case 'threw': return this.#onThrew(event);
+      case 'say': return this.#onSay(event);
       case 'team_triggered': return this.#onTeamTriggered(event);
       case 'entity_triggered': return this.#onEntityTriggered(event);
       case 'scored': return this.#onScored(event);
@@ -214,6 +338,7 @@ export class MatchState {
     const victim = this.#player(event.payload.victim);
     const modifiers = event.payload.modifiers ?? [];
     const headshot = modifiers.includes('headshot');
+    const weapon = stripWeaponPrefix(event.payload.weaponName ?? '').toLowerCase();
 
     if (victim) {
       victim.deaths++;
@@ -223,17 +348,38 @@ export class MatchState {
     if (attacker && attacker !== victim) {
       attacker.kills++;
       if (headshot) attacker.headshots++;
+      attacker.weaponKills[weapon] = (attacker.weaponKills[weapon] ?? 0) + 1;
     }
+
+    // Per-round multi-kill + first blood tracking
+    const atkId = attacker?.steamId ?? (attacker ? `name:${attacker.name}` : null);
+    let multiKillLabel = null;
+    if (atkId) {
+      const count = (this.currentRound.killsBySteamId[atkId] ?? 0) + 1;
+      this.currentRound.killsBySteamId[atkId] = count;
+      multiKillLabel = MULTI_KILL_LABELS[Math.min(count, 5)];
+    }
+    const isFirstKill = this.currentRound.kills.length === 0;
+    if (isFirstKill) {
+      this.currentRound.firstKillSteamId = attacker?.steamId ?? null;
+      this.currentRound.firstDeathSteamId = victim?.steamId ?? null;
+    }
+
     this.currentRound.kills.push({
       attacker: attacker?.name ?? event.payload.attacker?.name ?? null,
       attackerSteamId: attacker?.steamId ?? null,
+      attackerTeam: attacker?.team ?? null,
       victim: victim?.name ?? event.payload.victim?.name ?? null,
       victimSteamId: victim?.steamId ?? null,
-      weapon: event.payload.weaponName,
+      victimTeam: victim?.team ?? null,
+      weapon,
       headshot,
       penetrated: modifiers.includes('penetrated'),
       noscope: modifiers.includes('noscope'),
       throughSmoke: modifiers.includes('smoke'),
+      attackerBlind: modifiers.includes('attackerblind'),
+      isFirstKill,
+      multiKill: multiKillLabel,
       at: event.receivedAt,
     });
   }
@@ -253,13 +399,34 @@ export class MatchState {
 
   #onAttacked(event) {
     const victim = this.#player(event.payload.victim);
-    if (!victim) return;
-    if (typeof event.payload.remainingHealth === 'number') {
-      victim.health = event.payload.remainingHealth;
-      victim.isAlive = victim.health > 0;
+    const attacker = this.#player(event.payload.attacker);
+    const dmg = Math.max(0, Number(event.payload.damageAmount) || 0);
+
+    if (victim) {
+      if (typeof event.payload.remainingHealth === 'number') {
+        victim.health = event.payload.remainingHealth;
+        victim.isAlive = victim.health > 0;
+      }
+      if (typeof event.payload.remainingArmour === 'number') {
+        victim.armor = event.payload.remainingArmour;
+      }
     }
-    if (typeof event.payload.remainingArmour === 'number') {
-      victim.armor = event.payload.remainingArmour;
+    if (attacker && attacker !== victim && dmg > 0) {
+      attacker.liveDamageDealt += dmg;
+      attacker.liveDamageThisRound += dmg;
+
+      const atkId = attacker.steamId ?? `name:${attacker.name}`;
+      const vicId = victim?.steamId ?? `name:${victim?.name ?? 'unknown'}`;
+      const key = `${atkId}->${vicId}`;
+      if (!this.damageMatrix[key]) {
+        this.damageMatrix[key] = {
+          attackerName: attacker.name, attackerSteamId: attacker.steamId,
+          victimName: victim?.name ?? null, victimSteamId: victim?.steamId ?? null,
+          damage: 0, hits: 0,
+        };
+      }
+      this.damageMatrix[key].damage += dmg;
+      this.damageMatrix[key].hits += 1;
     }
   }
 
@@ -268,11 +435,9 @@ export class MatchState {
     if (!p) return;
     const item = stripWeaponPrefix(event.payload.weaponName ?? '').toLowerCase();
     if (item === 'vest') {
-      p.armor = 100;
-      p.hasHelmet = false;
+      p.armor = 100; p.hasHelmet = false;
     } else if (item === 'vesthelm') {
-      p.armor = 100;
-      p.hasHelmet = true;
+      p.armor = 100; p.hasHelmet = true;
     } else if (item === 'defuser') {
       p.hasDefuser = true;
     } else if (PRIMARIES.has(item)) {
@@ -309,6 +474,21 @@ export class MatchState {
     if (GRENADES.has(item)) p.grenadesThrown++;
   }
 
+  #onSay(event) {
+    const player = event.payload.player;
+    const msg = String(event.payload.message ?? '').trim();
+    if (!msg) return;
+    this.chatLog.push({
+      name: player?.name ?? 'unknown',
+      steamId: player?.steamId ? String(player.steamId) : null,
+      team: sideFromTeam(player?.team),
+      to: event.payload.to ?? 'global',
+      message: msg,
+      at: event.receivedAt,
+    });
+    if (this.chatLog.length > 200) this.chatLog.shift();
+  }
+
   #onTeamTriggered(event) {
     const reason = WIN_REASON_MAP[event.payload.kind] ?? event.payload.kind;
     const winningSide = sideFromTeam(event.payload.team);
@@ -316,18 +496,53 @@ export class MatchState {
     const tScore = event.payload.terroristScore ?? this.t.score;
     this.ct.score = ctScore;
     this.t.score = tScore;
+
+    // Round history entry
+    const round = this.currentRound;
+    const killsByPlayer = {};
+    for (const k of round.kills) {
+      if (!k.attackerSteamId && !k.attacker) continue;
+      const id = k.attackerSteamId ?? `name:${k.attacker}`;
+      killsByPlayer[id] = (killsByPlayer[id] ?? 0) + 1;
+    }
+    let topFragger = null;
+    let topFraggerKills = 0;
+    for (const [id, n] of Object.entries(killsByPlayer)) {
+      if (n > topFraggerKills) {
+        topFraggerKills = n;
+        const p = this.players.get(id);
+        topFragger = p ? { name: p.name, team: p.team, kills: n } : null;
+      }
+    }
+    const firstKiller = round.firstKillSteamId ? this.players.get(round.firstKillSteamId) : null;
+
+    round.endedAt = event.receivedAt;
+    round.durationMs = round.startedAt ? (Date.parse(event.receivedAt) - Date.parse(round.startedAt)) : null;
+    round.phase = 'Ended';
+    if (event.payload.kind === 'sfui_notice_target_bombed') {
+      round.bomb.status = 'exploded';
+    }
+
     this.roundHistory.push({
       round: this.roundNumber || this.roundHistory.length + 1,
       winner: winningSide,
       reason,
       ctScore,
       tScore,
+      bombSite: round.bomb.site ?? null,
+      bombStatus: round.bomb.status,
+      planter: round.bomb.planter ?? null,
+      defuser: round.bomb.defuser ?? null,
+      topFragger,
+      firstKiller: firstKiller ? { name: firstKiller.name, team: firstKiller.team } : null,
+      kills: round.kills.length,
+      durationMs: round.durationMs,
       endedAt: event.receivedAt,
     });
-    this.currentRound.phase = 'Ended';
-    if (event.payload.kind === 'sfui_notice_target_bombed') {
-      this.currentRound.bomb.status = 'exploded';
-    }
+
+    // Reset live per-round damage
+    for (const p of this.players.values()) p.liveDamageThisRound = 0;
+
     this.phase = this.#matchPhaseFromScores();
   }
 
@@ -365,7 +580,7 @@ export class MatchState {
         bomb.carrier = entName;
         break;
       case 'round_start':
-        this.#onRoundStart();
+        this.#onRoundStart(event.receivedAt);
         break;
       case 'round_end':
         this.currentRound.phase = 'Ended';
@@ -383,14 +598,16 @@ export class MatchState {
     }
   }
 
-  #onRoundStart() {
+  #onRoundStart(timestamp) {
     this.roundNumber++;
     this.currentRound = emptyRound(this.roundNumber);
     this.currentRound.phase = 'Live';
+    this.currentRound.startedAt = timestamp;
     for (const p of this.players.values()) {
       p.health = 100;
       p.isAlive = true;
-      p.grenadesThrown = 0;
+      p.liveDamageThisRound = 0;
+      // grenadesThrown stays as match-total
     }
     if (this.phase === 'Idle' || this.phase === 'Warmup') this.phase = 'Live';
   }
@@ -412,6 +629,53 @@ export class MatchState {
     const p = event.payload ?? {};
     if (p.kind === 'map' && p.state === 'loading' && p.map) {
       this.mapName = p.map;
+    }
+  }
+
+  #applyRoundStatsBlock(lines) {
+    const joined = lines.join('\n');
+    const fieldsMatch = joined.match(/"fields"\s*:\s*"([^"]+)"/);
+    if (!fieldsMatch) return;
+    const fieldNames = fieldsMatch[1].split(',').map((s) => s.trim());
+    const playerRe = /"player_\d+"\s*:\s*"([^"]+)"/g;
+    let m;
+    while ((m = playerRe.exec(joined))) {
+      const values = m[1].split(',').map((s) => s.trim());
+      const row = Object.fromEntries(fieldNames.map((k, i) => [k, values[i]]));
+      const accountId = row.accountid;
+      const steamId = accountIdToSteamId(accountId);
+      if (!steamId) continue; // bot
+      let p = this.players.get(steamId);
+      if (!p) {
+        p = newPlayer({ steamId, name: 'Unknown', kind: 'player' }, 'UNKNOWN');
+        this.players.set(steamId, p);
+      }
+      if (row.team === '3') p.team = 'CT';
+      else if (row.team === '2') p.team = 'T';
+      p.money = Number(row.money) || 0;
+      p.damageDealt = Number(row.dmg) || 0;
+      p.adr = Number(row.adr) || 0;
+      p.hsPercent = Number(row.hsp) || 0;
+      p.kdr = Number(row.kdr) || 0;
+      p.mvPs = Number(row.mvp) || 0;
+      p.enemiesFlashed = Number(row.ef) || 0;
+      p.utilityDamage = Number(row.ud) || 0;
+      p.tripleKills = Number(row['3k']) || 0;
+      p.quadKills = Number(row['4k']) || 0;
+      p.aces = Number(row['5k']) || 0;
+      p.clutchesWon = Number(row.clutchk) || 0;
+      p.firstKills = Number(row.firstk) || 0;
+      p.pistolKills = Number(row.pistolk) || 0;
+      p.sniperKills = Number(row.sniperk) || 0;
+      p.blindKills = Number(row.blindk) || 0;
+      p.bombKills = Number(row.bombk) || 0;
+      p.fireDamage = Number(row.firedmg) || 0;
+      p.uniqueKills = Number(row.uniquek) || 0;
+      p.dinks = Number(row.dinks) || 0;
+      // Authoritative K/D/A from server stats block
+      if (row.kills !== undefined) p.kills = Number(row.kills) || p.kills;
+      if (row.deaths !== undefined) p.deaths = Number(row.deaths) || p.deaths;
+      if (row.assists !== undefined) p.assists = Number(row.assists) || p.assists;
     }
   }
 

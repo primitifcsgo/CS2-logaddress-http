@@ -459,6 +459,39 @@ body::after {
   justify-content: space-between;
   font-size: 0.78rem;
 }
+.pc-stats-row {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  margin-top: 4px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.pc-stat { display: flex; flex-direction: column; align-items: center; min-width: 32px; }
+.pc-stat-lbl { font-size: 0.55rem; letter-spacing: 0.1em; opacity: 0.55; text-transform: uppercase; }
+.pc-stat-val { font-size: 0.8rem; color: var(--text); font-weight: 600; }
+.pc-multi-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.pc-multi {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.pc-multi.ace { background: rgba(239,68,68,0.18); color: #fca5a5; border-color: rgba(239,68,68,0.35); animation: pulse-dot 1.2s ease infinite; }
+.pc-multi.quad { background: rgba(249,115,22,0.15); color: #fdba74; border-color: rgba(249,115,22,0.3); }
+.pc-multi.triple { background: rgba(245,158,11,0.15); color: var(--yellow); border-color: rgba(245,158,11,0.3); }
+.pc-multi.clutch { background: rgba(16,185,129,0.15); color: var(--green); border-color: rgba(16,185,129,0.3); }
+.pc-multi.firstk { background: rgba(168,85,247,0.15); color: var(--purple); border-color: rgba(168,85,247,0.3); }
 .pc-equipment { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
 .pc-equip-item { display: flex; align-items: center; gap: 3px; }
 .pc-equip-icon { font-size: 0.7rem; opacity: 0.7; }
@@ -619,6 +652,52 @@ body::after {
 .kill-badge.noscope { background: var(--yellow-bg); color: var(--yellow); }
 .kill-badge.smoke { background: rgba(156,163,175,0.15); color: var(--text-secondary); }
 .kill-badge.blind { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.kill-badge.first-blood { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); font-weight: 800; }
+.kill-badge.multi { font-weight: 800; }
+.kill-badge.multi.double { background: rgba(74,158,255,0.15); color: var(--ct-light); }
+.kill-badge.multi.triple { background: rgba(245,158,11,0.18); color: var(--yellow); }
+.kill-badge.multi.quad { background: rgba(249,115,22,0.2); color: #fdba74; }
+.kill-badge.multi.ace { background: rgba(239,68,68,0.22); color: #fca5a5; animation: pulse-dot 0.8s ease infinite; }
+.ct-name { color: var(--ct-light); }
+.t-name { color: var(--t-light); }
+
+/* Match Leaders panel */
+.leaders-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.leader-card {
+  background: rgba(15,22,36,0.6);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.leader-title {
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.leader-title .ico { font-size: 0.9rem; }
+.leader-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; padding: 2px 0; }
+.leader-row .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 6px; }
+.leader-row .val { font-family: var(--font-mono); font-weight: 700; color: var(--text); }
+.leader-row + .leader-row { border-top: 1px solid rgba(255,255,255,0.03); }
+
+/* Chat panel */
+.chat-panel { background: rgba(15,22,36,0.7); border: 1px solid var(--border); border-radius: 8px; padding: 12px; max-height: 260px; overflow-y: auto; }
+.chat-empty { color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 16px 0; }
+.chat-msg { display: flex; gap: 6px; font-size: 0.78rem; padding: 3px 0; line-height: 1.35; }
+.chat-msg .who { font-weight: 700; flex-shrink: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-msg .to { font-size: 0.65rem; color: var(--text-dim); flex-shrink: 0; padding-top: 2px; }
+.chat-msg .msg { color: var(--text-secondary); flex: 1; word-break: break-word; }
+.chat-msg.team-msg .to { color: var(--green); }
+
+/* Damage matrix */
+.dmg-matrix { font-family: var(--font-mono); font-size: 0.7rem; }
+.dmg-matrix-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.dmg-matrix-row .dmg-val { color: var(--red-bg); color: #fca5a5; font-weight: 700; }
 
 .killfeed-empty { color: var(--text-dim); font-size: 0.8rem; text-align: center; padding: 16px 0; font-style: italic; }
 
@@ -1274,6 +1353,28 @@ body::after {
         <div class="mvp-list" id="mvp-list"></div>
       </div>
     </div>
+
+    <!-- Match Leaders -->
+    <div class="panel" style="margin-top:16px">
+      <div class="panel-title"><span class="dot"></span> MATCH LEADERS</div>
+      <div class="leaders-panel" id="leaders-panel"></div>
+    </div>
+
+    <!-- Chat + Damage Matrix -->
+    <div class="bottom-grid" style="margin-top:16px">
+      <div class="panel">
+        <div class="panel-title"><span class="dot"></span> CHAT</div>
+        <div class="chat-panel" id="chat-panel"><div class="chat-empty">No messages yet</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><span class="dot"></span> DAMAGE MATRIX</div>
+        <div class="dmg-matrix" id="dmg-matrix"><div class="chat-empty">Waiting for damage events</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><span class="dot"></span> UTILITY USAGE</div>
+        <div class="dmg-matrix" id="util-usage"><div class="chat-empty">Waiting</div></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1425,6 +1526,10 @@ function render() {
   renderEconomy();
   renderStats();
   renderMVP();
+  renderLeaders();
+  renderChat();
+  renderDamageMatrix();
+  renderUtilityUsage();
 }
 
 /* ── Connection ── */
@@ -1523,6 +1628,19 @@ function renderPlayerList(containerId, players, side) {
     const defuser = (side === 'ct' && p.hasDefuser) ? '<span class="pc-defuser-icon">KIT</span>' : '';
 
     card.className = `player-card ${side}-card${alive ? '' : ' dead'}`;
+    const adr = p.adr || 0;
+    const hsPct = p.hsPercent || 0;
+    const dmg = p.damageDealt || p.liveDamageDealt || 0;
+    const utilDmg = p.utilityDamage || 0;
+    const ef = p.enemiesFlashed || 0;
+    const multiBadges = [];
+    if (p.aces) multiBadges.push(`<span class="pc-multi ace" title="Aces">${p.aces}× ACE</span>`);
+    else if (p.quadKills) multiBadges.push(`<span class="pc-multi quad" title="Quad kills">${p.quadKills}× 4K</span>`);
+    else if (p.tripleKills) multiBadges.push(`<span class="pc-multi triple" title="Triple kills">${p.tripleKills}× 3K</span>`);
+    if (p.clutchesWon) multiBadges.push(`<span class="pc-multi clutch" title="Clutches won">${p.clutchesWon}× CL</span>`);
+    if (p.firstKills) multiBadges.push(`<span class="pc-multi firstk" title="First kills">${p.firstKills}× FB</span>`);
+
+    card.className = `player-card ${side}-card${alive ? '' : ' dead'}`;
     card.innerHTML = `
       <div class="pc-row1">
         <div class="pc-name">${mvpStars}${esc(p.name || '?')} ${deadTag}</div>
@@ -1532,6 +1650,14 @@ function renderPlayerList(containerId, players, side) {
         <div class="pc-hp-bar"><div class="pc-hp-fill ${hpClass}" style="width:${hp}%"></div></div>
         <div class="pc-hp-num ${hpClass}">${hp} HP</div>
       </div>
+      <div class="pc-stats-row" title="ADR / HS% / Damage / Utility / Flashed">
+        <span class="pc-stat"><span class="pc-stat-lbl">ADR</span><span class="pc-stat-val">${Math.round(adr)}</span></span>
+        <span class="pc-stat"><span class="pc-stat-lbl">HS</span><span class="pc-stat-val">${Math.round(hsPct)}%</span></span>
+        <span class="pc-stat"><span class="pc-stat-lbl">DMG</span><span class="pc-stat-val">${Math.round(dmg)}</span></span>
+        ${utilDmg ? `<span class="pc-stat"><span class="pc-stat-lbl">UD</span><span class="pc-stat-val">${Math.round(utilDmg)}</span></span>` : ''}
+        ${ef ? `<span class="pc-stat"><span class="pc-stat-lbl">EF</span><span class="pc-stat-val">${ef}</span></span>` : ''}
+      </div>
+      ${multiBadges.length ? `<div class="pc-multi-row">${multiBadges.join('')}</div>` : ''}
       <div class="pc-row3">
         <div class="pc-equipment">${armor}${helmet}${defuser}<span class="pc-weapon">${weapon}</span></div>
         <span class="pc-money ${moneyClass}">$${(p.money||0).toLocaleString()}</span>
@@ -1664,18 +1790,23 @@ function renderKillFeed() {
   // Render most recent kills first
   const reversed = [...kills].reverse();
   const html = reversed.map(k => {
-    const aTeam = teamMap[k.attacker] || '';
-    const vTeam = teamMap[k.victim] || '';
+    const aTeam = (k.attackerTeam || teamMap[k.attacker] || '').toLowerCase();
+    const vTeam = (k.victimTeam || teamMap[k.victim] || '').toLowerCase();
     const badges = [];
+    if (k.isFirstKill) badges.push('<span class="kill-badge first-blood" title="First kill of round">FIRST</span>');
+    if (k.multiKill === 'double') badges.push('<span class="kill-badge multi double">2K</span>');
+    if (k.multiKill === 'triple') badges.push('<span class="kill-badge multi triple">3K</span>');
+    if (k.multiKill === 'quad') badges.push('<span class="kill-badge multi quad">4K</span>');
+    if (k.multiKill === 'ace') badges.push('<span class="kill-badge multi ace">ACE</span>');
     if (k.headshot) badges.push('<span class="kill-badge hs">HS</span>');
-    if (k.wallbang) badges.push('<span class="kill-badge wallbang">WB</span>');
-    if (k.noScope) badges.push('<span class="kill-badge noscope">NS</span>');
+    if (k.penetrated || k.wallbang) badges.push('<span class="kill-badge wallbang">WB</span>');
+    if (k.noscope || k.noScope) badges.push('<span class="kill-badge noscope">NS</span>');
     if (k.throughSmoke) badges.push('<span class="kill-badge smoke">SMK</span>');
-    if (k.attackerFlashed) badges.push('<span class="kill-badge blind">BLD</span>');
+    if (k.attackerBlind || k.attackerFlashed) badges.push('<span class="kill-badge blind">BLIND</span>');
     return `<div class="kill-entry">
-      <span class="kill-attacker ${aTeam.toLowerCase()}-name">${esc(k.attacker)}</span>
+      <span class="kill-attacker ${aTeam}-name">${esc(k.attacker)}</span>
       <span class="kill-weapon">${weaponDisplay(k.weapon)}</span>
-      <span class="kill-victim">${esc(k.victim)}</span>
+      <span class="kill-victim ${vTeam}-name">${esc(k.victim)}</span>
       <div class="kill-badges">${badges.join('')}</div>
     </div>`;
   }).join('');
@@ -1883,6 +2014,89 @@ function renderMVP() {
         <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)">${p.kills||0}/${p.deaths||0}/${p.assists||0}</span>
         ${p.mvPs > 0 ? `<span class="mvp-count">${'\u2605'.repeat(Math.min(p.mvPs, 5))}</span>` : ''}
       </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── Match Leaders ── */
+function renderLeaders() {
+  const container = document.getElementById('leaders-panel');
+  const L = state.leaders || {};
+  const cards = [
+    { title: '🎯 TOP FRAG', key: 'kills', fmt: (v) => v },
+    { title: '💥 TOP ADR', key: 'adr', fmt: (v) => Math.round(v) },
+    { title: '📊 TOP DMG', key: 'damage', fmt: (v) => Math.round(v) },
+    { title: '🎯 HS%', key: 'hs', fmt: (v) => Math.round(v) + '%' },
+    { title: '👑 FIRST BLOODS', key: 'firstKills', fmt: (v) => v },
+    { title: '💎 CLUTCHES', key: 'clutches', fmt: (v) => v },
+    { title: '🔥 UTILITY DMG', key: 'utility', fmt: (v) => Math.round(v) },
+    { title: '⭐ MVPs', key: 'mvps', fmt: (v) => v },
+  ];
+  container.innerHTML = cards.map((c) => {
+    const rows = (L[c.key] || []).slice(0, 3);
+    if (!rows.length) return '';
+    const rowsHtml = rows.map((r) => {
+      const teamCls = (r.team || '').toLowerCase() + '-name';
+      return `<div class="leader-row"><span class="name ${teamCls}">${esc(r.name)}</span><span class="val">${c.fmt(r.value)}</span></div>`;
+    }).join('');
+    return `<div class="leader-card"><div class="leader-title">${c.title}</div>${rowsHtml}</div>`;
+  }).filter(Boolean).join('') || '<div class="chat-empty">Waiting for stats</div>';
+}
+
+/* ── Chat ── */
+function renderChat() {
+  const container = document.getElementById('chat-panel');
+  const msgs = state.chatLog || [];
+  if (!msgs.length) {
+    container.innerHTML = '<div class="chat-empty">No messages yet</div>';
+    return;
+  }
+  const last = msgs.slice(-40);
+  container.innerHTML = last.map((m) => {
+    const teamCls = (m.team || '').toLowerCase() + '-name';
+    const isTeam = m.to === 'team';
+    return `<div class="chat-msg${isTeam ? ' team-msg' : ''}">
+      <span class="who ${teamCls}">${esc(m.name)}:</span>
+      ${isTeam ? '<span class="to">[T]</span>' : ''}
+      <span class="msg">${esc(m.message)}</span>
+    </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+/* ── Damage Matrix (top 10) ── */
+function renderDamageMatrix() {
+  const container = document.getElementById('dmg-matrix');
+  const matrix = state.damageMatrix || {};
+  const rows = Object.values(matrix).sort((a, b) => b.damage - a.damage).slice(0, 10);
+  if (!rows.length) {
+    container.innerHTML = '<div class="chat-empty">Waiting for damage events</div>';
+    return;
+  }
+  container.innerHTML = rows.map((r) => {
+    return `<div class="dmg-matrix-row">
+      <span>${esc(r.attackerName || '?')} <span style="color:var(--text-dim)">→</span> ${esc(r.victimName || '?')}</span>
+      <span class="dmg-val">${r.damage} dmg · ${r.hits}h</span>
+    </div>`;
+  }).join('');
+}
+
+/* ── Utility Usage per player ── */
+function renderUtilityUsage() {
+  const container = document.getElementById('util-usage');
+  const players = (state.players || []).filter((p) => (p.grenadesThrown || 0) > 0 || (p.enemiesFlashed || 0) > 0 || (p.utilityDamage || 0) > 0);
+  if (!players.length) {
+    container.innerHTML = '<div class="chat-empty">No utility usage yet</div>';
+    return;
+  }
+  const sorted = [...players].sort((a, b) => (b.utilityDamage || 0) - (a.utilityDamage || 0));
+  container.innerHTML = sorted.map((p) => {
+    const teamCls = (p.team || '').toLowerCase() + '-name';
+    return `<div class="dmg-matrix-row">
+      <span class="${teamCls}" style="font-weight:700">${esc(p.name || '?')}</span>
+      <span style="color:var(--text-secondary)">
+        🎯 ${p.grenadesThrown || 0} nades · ⚡ ${p.enemiesFlashed || 0} flashed · 💥 ${Math.round(p.utilityDamage || 0)} UD
+      </span>
     </div>`;
   }).join('');
 }
