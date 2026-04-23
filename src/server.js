@@ -11,6 +11,8 @@ const LOG_TOKEN = process.env.LOG_TOKEN ?? '';
 
 const match = new MatchState();
 let lastIngestAt = null;
+const rawBuffer = [];
+const RAW_BUFFER_MAX = 20;
 
 const app = express();
 app.use(express.text({ type: '*/*', limit: '2mb' }));
@@ -32,7 +34,9 @@ function ingestHandler(req, res) {
   if (!checkAuth(req)) return res.sendStatus(403);
   if (LOG_TOKEN && req.params.token !== LOG_TOKEN) return res.sendStatus(403);
 
-  const body = typeof req.body === 'string' ? req.body : '';
+  const body = typeof req.body === 'string' ? req.body : (Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '');
+  rawBuffer.push({ at: new Date().toISOString(), bytes: body.length, body: body.slice(0, 4000) });
+  while (rawBuffer.length > RAW_BUFFER_MAX) rawBuffer.shift();
   const events = match.ingestBatch(body);
   lastIngestAt = Date.now();
   res.json({ accepted: events.length });
@@ -78,6 +82,13 @@ app.post('/reset', (req, res) => {
   match.reset();
   lastIngestAt = null;
   res.json({ message: 'Reset complete' });
+});
+
+app.get('/debug/last', (req, res) => {
+  res.json({
+    totalReceived: rawBuffer.length,
+    entries: rawBuffer,
+  });
 });
 
 app.get('/', (req, res) => {
