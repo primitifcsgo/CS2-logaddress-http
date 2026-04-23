@@ -121,6 +121,14 @@ export class MatchState {
       /^(\d{2}\/\d{2}\/\d{4}) - (\d{2}:\d{2}:\d{2})(?:\.\d+)? - /,
       '$1 - $2: ',
     );
+    // CS2 appends " at bombsite A" to Planted_The_Bomb / Bomb_Begin_Plant;
+    // parser doesn't tolerate the suffix. Capture site, then strip.
+    let bombsite = null;
+    const siteMatch = stripped.match(/ at bombsite ([A-Za-z0-9]+)\s*$/);
+    if (siteMatch) {
+      bombsite = siteMatch[1];
+      stripped = stripped.replace(/ at bombsite [A-Za-z0-9]+\s*$/, '');
+    }
 
     let event;
     try {
@@ -129,6 +137,7 @@ export class MatchState {
       return null;
     }
     if (!event) return null;
+    if (bombsite && event.payload) event.payload._bombsite = bombsite;
 
     this.lastEventAt = Date.now();
     this.eventsProcessed++;
@@ -331,6 +340,12 @@ export class MatchState {
         bomb.status = 'planted';
         bomb.planter = entName;
         bomb.plantedAt = Date.now();
+        if (event.payload._bombsite) bomb.site = event.payload._bombsite;
+        break;
+      case 'bomb_begin_plant':
+        bomb.status = 'planting';
+        bomb.planter = entName;
+        if (event.payload._bombsite) bomb.site = event.payload._bombsite;
         break;
       case 'defused_the_bomb':
         bomb.status = 'defused';
