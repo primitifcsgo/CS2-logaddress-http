@@ -1,0 +1,18 @@
+{
+  "name": "cs2-log-backend",
+  "version": "1.0.0",
+  "description": "CS2 live match backend — ingests SRCDS logs via logaddress_add_http and parses them with @blastorg/srcds-log-parser.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@blastorg/srcds-log-parser": "^2.1.0",
+    "express": "^4.21.2"
+  }
+}

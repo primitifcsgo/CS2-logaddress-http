@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: cs2-log-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_TOKEN
+        generateValue: true
+      - key: LOG_AUTH
+        sync: false
